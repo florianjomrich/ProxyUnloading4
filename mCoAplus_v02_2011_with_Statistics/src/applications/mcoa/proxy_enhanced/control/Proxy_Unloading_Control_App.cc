@@ -59,6 +59,7 @@ void Proxy_Unloading_Control_App::initialize() {
 
     flowBindingUpdatestimeOutMessage = new cMessage();
     requestForConnectionTimeOutMessage = new cMessage();
+    setActiveIPAddressTimeOutMessage = new cMessage();
 
     flowBindingUpdatesToSend = std::vector<FlowBindingUpdate*>();
     requestForConnectionToSend = std::vector<RequetConnectionToLegacyServer*>();
@@ -88,14 +89,24 @@ void Proxy_Unloading_Control_App::initialize() {
         scheduleAt(startTime + flowBindingUpdateTimeOut,
                 flowBindingUpdatestimeOutMessage);
 
+        scheduleAt(startTime + setActiveIPAddressTimeOut,
+                setActiveIPAddressTimeOutMessage);
+
         //############## TO INFLUENCE THE DATA FLOW #####################
         if (isMN) {
 
-            /*   cMessage* setActiveIPAddressTimeOut_ForCN0 = new cMessage(
-             "Change the Control Flow through own message");
-             setActiveIPAddressTimeOut_ForCN0->setKind(CHANGE_DATA_FLOW);
-             scheduleAt(startTime + setActiveIPAddressTimeOut,
-             setActiveIPAddressTimeOut_ForCN0);*/
+            if (!strcmp(humanReadableName, "MN[1]")) {
+                SetAddressActive* addressToBeSetActive_ForCN0 =
+                        new SetAddressActive();
+                addressToBeSetActive_ForCN0->setName(
+                        "Change the Control Flow of MN[1] FOR CN[0]");
+                addressToBeSetActive_ForCN0->setKind(CHANGE_DATA_FLOW);
+                addressToBeSetActive_ForCN0->setAddressToBeSetActive(
+                        "2001:db8::2aa:201");
+                addressToBeSetActive_ForCN0->setCorrespondentNodeToReceive(0);
+
+                scheduleAt(startTime * 10.35, addressToBeSetActive_ForCN0);
+            }
 
         }
 
@@ -125,7 +136,9 @@ void Proxy_Unloading_Control_App::handleMessage(cMessage* msg) {
                         requestForConnectionToSend.front();
 
                 IPvXAddress ha = IPAddressResolver().resolve("HA");
-                cout <<humanReadableName<< ": RequetConnectionToLegacyServer Liste war nicht leer - zu sendender Request an: "<<nextRequestToSend->getDestAddress() << endl;
+                cout << humanReadableName
+                        << ": RequetConnectionToLegacyServer Liste war nicht leer - zu sendender Request an: "
+                        << nextRequestToSend->getDestAddress() << endl;
                 sendToUDPMCOA(nextRequestToSend->dup(), localPort, ha, 2000,
                         true);
 
@@ -154,7 +167,10 @@ void Proxy_Unloading_Control_App::handleMessage(cMessage* msg) {
                     FlowBindingUpdate* nextToSendFlowBindingUpdate =
                             flowBindingUpdatesToSend.front();
 
-                    cout <<humanReadableName<< ": FlowBindingUpdate Liste war nicht leer - zu sendende CoA:"<<nextToSendFlowBindingUpdate->getNewCoAdress() << endl;
+                    cout << humanReadableName
+                            << ": FlowBindingUpdate Liste war nicht leer - zu sendende CoA:"
+                            << nextToSendFlowBindingUpdate->getNewCoAdress()
+                            << endl;
 
                     //get Home Agents correct address:
                     RoutingTable6* rt6 = RoutingTable6Access().get();
@@ -166,7 +182,10 @@ void Proxy_Unloading_Control_App::handleMessage(cMessage* msg) {
                     FlowBindingUpdate* nextToSendFlowBindingUpdate =
                             flowBindingUpdatesToSend.front();
 
-                    cout <<humanReadableName<< ": FlowBindingUpdate Liste war nicht leer - zu sendende CoA:"<<nextToSendFlowBindingUpdate->getNewCoAdress() << endl;
+                    cout << humanReadableName
+                            << ": FlowBindingUpdate Liste war nicht leer - zu sendende CoA:"
+                            << nextToSendFlowBindingUpdate->getNewCoAdress()
+                            << endl;
 
                     IPvXAddress dest = IPvXAddress();
                     dest.set(nextToSendFlowBindingUpdate->getCNDestAddress());
@@ -183,18 +202,52 @@ void Proxy_Unloading_Control_App::handleMessage(cMessage* msg) {
 
 //##########################################################################
 
-//################ peridocially check Flow Binding Update Vector ##########
+//################  check new Request to Change the Data Flow has arrived ##########
         if (msg->getKind() == CHANGE_DATA_FLOW) {
 
-            //send the Message again
-            sendChangeDataFlowMessage(0);
+            if (isMN) {
 
-            //schedule New Timer - if the CN does not respond properly with an ACK:
-            scheduleAt(simTime() + setActiveIPAddressTimeOut, msg);
+                          cout << humanReadableName
+                                  << ": new SetAddressActive Message to be scheduled."
+                                  << endl;
+
+                          //insert into waiting queue
+
+                          SetAddressActive* newAddressToSetActive = check_and_cast<
+                                  SetAddressActive *>(msg);
+
+                          addresseToBeSetActive.push_back(newAddressToSetActive);
+                      }
 
         }
 
 //##########################################################################
+
+//##### check periodically if  a Request to Change the Dataflow still has to be send out ##########
+        if (msg == setActiveIPAddressTimeOutMessage) {
+
+            if (!addresseToBeSetActive.empty()) {
+                if (isMN) {
+
+                    SetAddressActive* setAddressActiveMessageToSend =
+                            addresseToBeSetActive.front();
+
+                    //send the Message again
+                    RoutingTable6* rt6 = RoutingTable6Access().get();
+
+                    cout << "SetAddressActive Nachricht gesendet von "
+                            << humanReadableName << " zur Zeit: " << simTime()
+                            << endl;
+                    sendToUDPMCOA(setAddressActiveMessageToSend->dup(),
+                            localPort, rt6->getHomeNetHA_adr(), 2000, true);
+
+                }
+            }
+            //schedule New Timer - if the CN does not respond properly with an ACK or the list is currently empty:
+            scheduleAt(simTime() + setActiveIPAddressTimeOut, msg);
+        }
+        //##########################################################################
+
     } else {
 
         if (dynamic_cast<RequetConnectionToLegacyServer*>(msg)) {
@@ -309,28 +362,26 @@ void Proxy_Unloading_Control_App::handleMessage(cMessage* msg) {
                     flowBindingUpdatesToSend.erase(
                             flowBindingUpdatesToSend.begin());
                 }
-                ACK_FlowBinding* messageACKfromCN = check_and_cast<ACK_FlowBinding *>(
-                                                  msg);
+                ACK_FlowBinding* messageACKfromCN = check_and_cast<
+                        ACK_FlowBinding *>(msg);
 
-                                  cout << humanReadableName
-                                          << " hat sein FlowBindingUpdate bestätigt bekommen von: "
-                                          <<messageACKfromCN->getSourceName()
-                                          << endl;
+                cout << humanReadableName
+                        << " hat sein FlowBindingUpdate bestätigt bekommen von: "
+                        << messageACKfromCN->getSourceName() << endl;
             }
             if (isHA) {
-                    //remove the entry from the queue for no furthe
-                    if (!flowBindingUpdatesToSend.empty()) {
-                        flowBindingUpdatesToSend.erase(
-                                flowBindingUpdatesToSend.begin());
-                    }
-                    ACK_FlowBinding* messageACKfromCN = check_and_cast<ACK_FlowBinding *>(
-                                    msg);
-
-                    cout << humanReadableName
-                            << " hat sein FlowBindingUpdate bestätigt bekommen von: "
-                            <<messageACKfromCN->getSourceName()
-                            << endl;
+                //remove the entry from the queue for no furthe
+                if (!flowBindingUpdatesToSend.empty()) {
+                    flowBindingUpdatesToSend.erase(
+                            flowBindingUpdatesToSend.begin());
                 }
+                ACK_FlowBinding* messageACKfromCN = check_and_cast<
+                        ACK_FlowBinding *>(msg);
+
+                cout << humanReadableName
+                        << " hat sein FlowBindingUpdate bestätigt bekommen von: "
+                        << messageACKfromCN->getSourceName() << endl;
+            }
             return;
         }
 
@@ -433,6 +484,8 @@ void Proxy_Unloading_Control_App::handleMessage(cMessage* msg) {
 
         //**********************************************************************
         if (dynamic_cast<SetAddressActive*>(msg)) {
+
+
             if (isHA) {
                 SetAddressActive* messageFromMN = check_and_cast<
                         SetAddressActive*>(msg);
