@@ -102,7 +102,8 @@ void Proxy_Unloading_Control_App::initialize() {
                         "Change the Control Flow of MN[1] FOR CN[0]");
                 addressToBeSetActive_ForCN0->setKind(CHANGE_DATA_FLOW);
                 addressToBeSetActive_ForCN0->setAddressToBeSetActive(
-                        "2001:db8::2aa:201");
+                        "2001:db8::2aa:501");
+
                 addressToBeSetActive_ForCN0->setCorrespondentNodeToReceive(0);
 
                 scheduleAt(startTime * 10.35, addressToBeSetActive_ForCN0);
@@ -207,17 +208,17 @@ void Proxy_Unloading_Control_App::handleMessage(cMessage* msg) {
 
             if (isMN) {
 
-                          cout << humanReadableName
-                                  << ": new SetAddressActive Message to be scheduled."
-                                  << endl;
+                cout << humanReadableName
+                        << ": new SetAddressActive Message to be scheduled."
+                        << endl;
 
-                          //insert into waiting queue
+                //insert into waiting queue
 
-                          SetAddressActive* newAddressToSetActive = check_and_cast<
-                                  SetAddressActive *>(msg);
+                SetAddressActive* newAddressToSetActive = check_and_cast<
+                        SetAddressActive *>(msg);
 
-                          addresseToBeSetActive.push_back(newAddressToSetActive);
-                      }
+                addresseToBeSetActive.push_back(newAddressToSetActive);
+            }
 
         }
 
@@ -232,6 +233,12 @@ void Proxy_Unloading_Control_App::handleMessage(cMessage* msg) {
                     SetAddressActive* setAddressActiveMessageToSend =
                             addresseToBeSetActive.front();
 
+                    IPvXAddress ownAddress = IPAddressResolver().resolve(
+                            humanReadableName);
+
+                    setAddressActiveMessageToSend->setSourceAddressOfMN(
+                            ownAddress.str().c_str());
+
                     //send the Message again
                     RoutingTable6* rt6 = RoutingTable6Access().get();
 
@@ -241,6 +248,24 @@ void Proxy_Unloading_Control_App::handleMessage(cMessage* msg) {
                     sendToUDPMCOA(setAddressActiveMessageToSend->dup(),
                             localPort, rt6->getHomeNetHA_adr(), 2000, true);
 
+                }
+
+                if (isHA) {
+
+                    SetAddressActive* setAddressActiveMessageToSend =
+                            addresseToBeSetActive.front();
+                    if (setAddressActiveMessageToSend->getCorrespondentNodeToReceive()
+                            == 1) {
+                        IPvXAddress cn1 = IPAddressResolver().resolve("CN[1]");
+                        sendToUDPMCOA(setAddressActiveMessageToSend->dup(),
+                                localPort, cn1, 2000, true);
+                    }
+                    if (setAddressActiveMessageToSend->getCorrespondentNodeToReceive()
+                            == 0) {
+                        IPvXAddress cn0 = IPAddressResolver().resolve("CN[0]");
+                        sendToUDPMCOA(setAddressActiveMessageToSend->dup(),
+                                localPort, cn0, 2000, true);
+                    }
                 }
             }
             //schedule New Timer - if the CN does not respond properly with an ACK or the list is currently empty:
@@ -485,7 +510,6 @@ void Proxy_Unloading_Control_App::handleMessage(cMessage* msg) {
         //**********************************************************************
         if (dynamic_cast<SetAddressActive*>(msg)) {
 
-
             if (isHA) {
                 SetAddressActive* messageFromMN = check_and_cast<
                         SetAddressActive*>(msg);
@@ -493,16 +517,19 @@ void Proxy_Unloading_Control_App::handleMessage(cMessage* msg) {
                         << "SetAddressActive Message ist beim Home Agent eingegangen. Absender war: "
                         << messageFromMN->getName() << endl;
 
-                if (messageFromMN->getCorrespondentNodeToReceive() == 1) {
-                    IPvXAddress cn1 = IPAddressResolver().resolve("CN[1]");
-                    sendToUDPMCOA(messageFromMN->dup(), localPort, cn1, 2000,
-                            true);
-                }
-                if (messageFromMN->getCorrespondentNodeToReceive() == 0) {
-                    IPvXAddress cn0 = IPAddressResolver().resolve("CN[0]");
-                    sendToUDPMCOA(messageFromMN->dup(), localPort, cn0, 2000,
-                            true);
-                }
+                addresseToBeSetActive.push_back(messageFromMN->dup());
+
+                //acknowledge the received SetAddressActive Message
+
+                ACK_SetAddressActive* messageAsResponse =
+                        new ACK_SetAddressActive();
+                messageAsResponse->setSourceName(humanReadableName);
+                IPvXAddress dest = IPvXAddress();
+                dest.set(messageFromMN->getSourceAddressOfMN());
+
+                sendToUDPMCOA(messageAsResponse->dup(), localPort, dest, 2000,
+                        true);
+
 
             }
             if (isCN) {
@@ -513,6 +540,45 @@ void Proxy_Unloading_Control_App::handleMessage(cMessage* msg) {
                         << messageFromHA->getName() << endl;
                 send(messageFromHA, "uDPControllAppConnection$o");
 
+                //acknowledge the received SetAddressActive Message
+
+                ACK_SetAddressActive* messageAsResponse =
+                        new ACK_SetAddressActive();
+                messageAsResponse->setSourceName(humanReadableName);
+                IPvXAddress ha = IPAddressResolver().resolve("HA");
+
+                sendToUDPMCOA(messageAsResponse->dup(), localPort, ha, 2000,
+                        true);
+
+            }
+            return;
+        }
+        //**********************************************************************
+
+        if (dynamic_cast<ACK_SetAddressActive*>(msg)) {
+            if (isMN) {
+
+                ACK_SetAddressActive* response = check_and_cast<
+                        ACK_SetAddressActive*>(msg);
+                cout << humanReadableName
+                        << " hat seine SetAddressActive Nachricht acknowledget bekommen vom HA"
+                        << endl;
+                if (!addresseToBeSetActive.empty()) {
+                    addresseToBeSetActive.erase(addresseToBeSetActive.begin());
+                }
+
+            }
+
+            if (isHA) {
+
+                ACK_SetAddressActive* response = check_and_cast<
+                        ACK_SetAddressActive*>(msg);
+                cout << humanReadableName
+                        << " hat seine SetAddressActive Nachricht acknowledget bekommen vom"
+                        << response->getSourceName() << endl;
+                if (!addresseToBeSetActive.empty()) {
+                    addresseToBeSetActive.erase(addresseToBeSetActive.begin());
+                }
             }
             return;
         }

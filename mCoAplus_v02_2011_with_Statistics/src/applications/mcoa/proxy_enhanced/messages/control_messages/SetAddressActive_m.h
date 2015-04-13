@@ -20,6 +20,7 @@
  * <pre>
  * packet SetAddressActive {
  *     string addressToBeSetActive;
+ *     string sourceAddressOfMN;
  *     int CorrespondentNodeToReceive;
  * }
  * </pre>
@@ -28,6 +29,7 @@ class SetAddressActive : public ::cPacket
 {
   protected:
     opp_string addressToBeSetActive_var;
+    opp_string sourceAddressOfMN_var;
     int CorrespondentNodeToReceive_var;
 
   private:
@@ -49,6 +51,8 @@ class SetAddressActive : public ::cPacket
     // field getter/setter methods
     virtual const char * getAddressToBeSetActive() const;
     virtual void setAddressToBeSetActive(const char * addressToBeSetActive);
+    virtual const char * getSourceAddressOfMN() const;
+    virtual void setSourceAddressOfMN(const char * sourceAddressOfMN);
     virtual int getCorrespondentNodeToReceive() const;
     virtual void setCorrespondentNodeToReceive(int CorrespondentNodeToReceive);
 };

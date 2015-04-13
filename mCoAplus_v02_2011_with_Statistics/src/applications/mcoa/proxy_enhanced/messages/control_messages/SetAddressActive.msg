@@ -18,5 +18,6 @@
 //
 packet SetAddressActive {
     string addressToBeSetActive;
+    string sourceAddressOfMN;
     int CorrespondentNodeToReceive;
 }

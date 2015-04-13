@@ -32,6 +32,7 @@
 #include "ACK_Request_m.h"
 #include "SetAddressActive_m.h"
 #include "ACK_FlowBinding_m.h"
+#include "ACK_SetAddressActive_m.h"
 
 /**
  * A "Realtime" VideoStream client application.

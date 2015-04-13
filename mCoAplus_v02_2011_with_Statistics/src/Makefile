@@ -541,6 +541,7 @@ OBJS = \
     $O/applications/mcoa/proxy_enhanced/messages/control_messages/ACK_Request_m.o \
     $O/applications/mcoa/proxy_enhanced/messages/control_messages/RequetConnectionToLegacyServer_m.o \
     $O/applications/mcoa/proxy_enhanced/messages/control_messages/ACK_FlowBinding_m.o \
+    $O/applications/mcoa/proxy_enhanced/messages/control_messages/ACK_SetAddressActive_m.o \
     $O/applications/pingapp/PingPayload_m.o \
     $O/applications/tcpapp/GenericAppMsg_m.o \
     $O/applications/udpapp/UDPEchoAppMsg_m.o \
@@ -618,6 +619,7 @@ MSGFILES = \
     applications/mcoa/proxy_enhanced/messages/control_messages/ACK_Request.msg \
     applications/mcoa/proxy_enhanced/messages/control_messages/RequetConnectionToLegacyServer.msg \
     applications/mcoa/proxy_enhanced/messages/control_messages/ACK_FlowBinding.msg \
+    applications/mcoa/proxy_enhanced/messages/control_messages/ACK_SetAddressActive.msg \
     applications/pingapp/PingPayload.msg \
     applications/tcpapp/GenericAppMsg.msg \
     applications/udpapp/UDPEchoAppMsg.msg \
@@ -1138,6 +1140,7 @@ $O/applications/mcoa/proxy_enhanced/control/Proxy_Unloading_Control_App.o: appli
 	applications/mcoa/proxy_enhanced/control/Proxy_Unloading_Control_App.h \
 	applications/mcoa/proxy_enhanced/messages/control_messages/ACK_FlowBinding_m.h \
 	applications/mcoa/proxy_enhanced/messages/control_messages/ACK_Request_m.h \
+	applications/mcoa/proxy_enhanced/messages/control_messages/ACK_SetAddressActive_m.h \
 	applications/mcoa/proxy_enhanced/messages/control_messages/FlowBindingUpdate_m.h \
 	applications/mcoa/proxy_enhanced/messages/control_messages/RequetConnectionToLegacyServer_m.h \
 	applications/mcoa/proxy_enhanced/messages/control_messages/SetAddressActive_m.h \
@@ -1179,6 +1182,8 @@ $O/applications/mcoa/proxy_enhanced/messages/control_messages/ACK_FlowBinding_m.
 	applications/mcoa/proxy_enhanced/messages/control_messages/ACK_FlowBinding_m.h
 $O/applications/mcoa/proxy_enhanced/messages/control_messages/ACK_Request_m.o: applications/mcoa/proxy_enhanced/messages/control_messages/ACK_Request_m.cc \
 	applications/mcoa/proxy_enhanced/messages/control_messages/ACK_Request_m.h
+$O/applications/mcoa/proxy_enhanced/messages/control_messages/ACK_SetAddressActive_m.o: applications/mcoa/proxy_enhanced/messages/control_messages/ACK_SetAddressActive_m.cc \
+	applications/mcoa/proxy_enhanced/messages/control_messages/ACK_SetAddressActive_m.h
 $O/applications/mcoa/proxy_enhanced/messages/control_messages/FlowBindingUpdate_m.o: applications/mcoa/proxy_enhanced/messages/control_messages/FlowBindingUpdate_m.cc \
 	applications/mcoa/proxy_enhanced/messages/control_messages/FlowBindingUpdate_m.h
 $O/applications/mcoa/proxy_enhanced/messages/control_messages/RequetConnectionToLegacyServer_m.o: applications/mcoa/proxy_enhanced/messages/control_messages/RequetConnectionToLegacyServer_m.cc \
