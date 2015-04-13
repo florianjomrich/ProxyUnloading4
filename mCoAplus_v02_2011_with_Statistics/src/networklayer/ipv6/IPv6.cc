@@ -133,44 +133,56 @@ void IPv6::endService(cPacket *msg) {
         cout << "Aktualisierter Tabellenstand:" << endl;
         flowBindingTable->printoutContentOftable();
 
-
-        if(isHA){
+        if (isHA) {
             //now get the information of the CNs that have to be informed about this change as well:
-            cout<<"Acquire now a list of CNs that have to be informed as well"<<endl;
-                    std::vector<FlowBindingEntry> flowBindingEntriesToUpdate = flowBindingTable->getCNsToBeInformed(receivedFlowBindingUpdate);
+            cout << "Acquire now a list of CNs that have to be informed as well"
+                    << endl;
+            std::vector<FlowBindingEntry> flowBindingEntriesToUpdate =
+                    flowBindingTable->getCNsToBeInformed(
+                            receivedFlowBindingUpdate);
 
-                    FlowBindingUpdate* flowBindingUpdateForCNs = receivedFlowBindingUpdate->dup();
-                    flowBindingUpdateForCNs->setHasToBeDeliveredToCNs(true);
+            FlowBindingUpdate* flowBindingUpdateForCNs =
+                    receivedFlowBindingUpdate->dup();
+            flowBindingUpdateForCNs->setHasToBeDeliveredToCNs(true);
 
-                    std::vector<FlowBindingEntry>::iterator it;
-                    for (it = flowBindingEntriesToUpdate.begin();
-                              it < flowBindingEntriesToUpdate.end(); it++){
-                        flowBindingUpdateForCNs->setCNDestAddress(it->destAddress);
-                        cout<<"Flow Binding Update to send for CN: "<<it->destAddress<<endl;
-                        send(flowBindingUpdateForCNs, "uDPControllAppConnection$o");
-                    }
+            std::vector<FlowBindingEntry>::iterator it;
+            for (it = flowBindingEntriesToUpdate.begin();
+                    it < flowBindingEntriesToUpdate.end(); it++) {
+                flowBindingUpdateForCNs->setCNDestAddress(it->destAddress);
+                cout << "Flow Binding Update to send for CN: "
+                        << it->destAddress << endl;
+                send(flowBindingUpdateForCNs, "uDPControllAppConnection$o");
+            }
 
         }
 
-
         return;
     }
 
-
-    if(dynamic_cast<ACK_Request*>(msg) && isMN){
-        cout<<" The network layer of "<<myHumanReadableName<<" updates its FlowBindingTable with a new capable CN"<<endl;
-        ACK_Request* messageFromProxyControlApp =check_and_cast<ACK_Request *>(msg);
+    if (dynamic_cast<ACK_Request*>(msg) && isMN) {
+        cout << " The network layer of " << myHumanReadableName
+                << " updates its FlowBindingTable with a new capable CN"
+                << endl;
+        ACK_Request* messageFromProxyControlApp = check_and_cast<ACK_Request *>(
+                msg);
         cout<<"ADDRESSES OF CN: ON IPV6"<<messageFromProxyControlApp->getDestAddress()<<endl;
-        flowBindingTable->updateEntriesWithNewCapableCN(messageFromProxyControlApp->getDestAddress());
+        flowBindingTable->updateEntriesWithNewCapableCN(
+                messageFromProxyControlApp->getDestAddress());
         return;
     }
 
-
-    if(dynamic_cast<SetAddressActive*>(msg) && isCN){
-        SetAddressActive* fromHA = check_and_cast<SetAddressActive*>(msg);
-        cout<<" The network layer of "<<myHumanReadableName<<" sets a new active IP Adress for a MN"<<endl;
-        flowBindingTable->setIPAddressActive(fromHA);
-        return;
+    //update the own Flow Binding Table with the given command, if it is a capable CN or the HA
+    if (dynamic_cast<SetAddressActive*>(msg)) {
+        if ((isCN && isCapableCN) || isHA) {
+            SetAddressActive* fromHA = check_and_cast<SetAddressActive*>(msg);
+            cout << " The network layer of " << myHumanReadableName
+                    << " sets a new active IP Adress for a MN" << endl;
+            flowBindingTable->setIPAddressActive(fromHA);
+            return;
+        } else {
+            //not capable CN does nothing with the Command Message
+            return;
+        }
     }
 
     //*********************************************************************************************************
@@ -276,9 +288,8 @@ InterfaceEntry *IPv6::getSourceInterfaceFrom(cPacket *msg, bool isTunneled) {
 
 void IPv6::handleDatagramFromNetwork(IPv6Datagram *datagram, bool isTunnelled) {
 
-
     if (isHA && datagram->getTransportProtocol() == IP_PROT_UDP)
-       cout << "DATAGRAM-NAME: " << datagram->getName()<<endl;
+        cout << "DATAGRAM-NAME: " << datagram->getName() << endl;
 
     EV << "\n<<=======HandleMessagefromNetwork() Called=========>>  " << endl;
     // check for header biterror
@@ -402,14 +413,24 @@ void IPv6::fragmentAndRoute(IPv6Datagram *datagram, InterfaceEntry *destIE) {
 void IPv6::routePacket(IPv6Datagram *datagram, InterfaceEntry *destIE,
         bool fromHL, bool isTunneled) {
     // TBD add option handling code here
+    //#####################################################Flow Controll des HAs für durchgehende Pakete, z.B. vom CN#####################################################
+       if (isHA) {
+           replaceFlowSourceAddress(datagram);
+       }
+       //#####################################################Flow Controll des HAs für durchgehende Pakete, z.B. vom CN#####################################################
+       cout<<"NACH DER ERSETZUNG: "<<datagram->getDestAddress()<<endl;
+
+
     IPv6Address destAddress = datagram->getDestAddress();
 
-    EV << "Routing datagram '" << datagram->getName() << "' with dest="
+    cout << "Routing datagram '" << datagram->getName() << "' with dest="
               << destAddress << ":\n";
+
+
 
     // local delivery of unicast packets
     if (rt->isLocalAddress(destAddress)) {
-        EV << "local delivery\n";
+        cout << "local delivery\n";
 
         if (datagram->getSrcAddress().isUnspecified())
             datagram->setSrcAddress(destAddress); // allows two apps on the same host to communicate
@@ -426,7 +447,7 @@ void IPv6::routePacket(IPv6Datagram *datagram, InterfaceEntry *destIE,
         // FIXME rewrite code so that condition is cleaner --Andras
         //if (!rt->isRouter())
         if (!rt->isRouter() && !(datagram->getArrivalGate()->isName("ndIn"))) {
-            EV << "forwarding is off, dropping packet\n";
+            cout << "forwarding is off, dropping packet\n";
             numDropped++;
             delete datagram;
             return;
@@ -434,7 +455,7 @@ void IPv6::routePacket(IPv6Datagram *datagram, InterfaceEntry *destIE,
 
         // don't forward link-local addresses or weaker
         if (destAddress.isLinkLocal() || destAddress.isLoopback()) {
-            EV
+            cout
                       << "dest address is link-local (or weaker) scope, doesn't get forwarded\n";
             delete datagram;
             return;
@@ -498,7 +519,7 @@ void IPv6::routePacket(IPv6Datagram *datagram, InterfaceEntry *destIE,
 
     if (interfaceId > ift->getNumInterfaces()) {
         // a virtual tunnel interface provides a path to the destination: do tunneling
-        EV << "tunneling: src addr=" << datagram->getSrcAddress()
+        cout << "tunneling: src addr=" << datagram->getSrcAddress()
                   << ", dest addr=" << destAddress << std::endl;
 
         //EV << "sending datagram to encapsulation..." << endl;
@@ -515,18 +536,18 @@ void IPv6::routePacket(IPv6Datagram *datagram, InterfaceEntry *destIE,
 
     InterfaceEntry *ie = ift->getInterfaceById(interfaceId);
     ASSERT(ie!=NULL);
-    EV << "next hop for " << destAddress << " is " << nextHop << ", interface "
+    cout << "next hop for " << destAddress << " is " << nextHop << ", interface "
               << ie->getName() << "\n";
     ASSERT(!nextHop.isUnspecified() && ie!=NULL);
 
     MACAddress macAddr = nd->resolveNeighbour(nextHop, interfaceId);
     if (macAddr.isUnspecified()) {
-        EV
+        cout
                   << "no link-layer address for next hop yet, passing datagram to Neighbour Discovery module\n";
         send(datagram, "ndOut");
         return;
     }
-    EV << "link-layer address: " << macAddr << "\n";
+    cout << "link-layer address: " << macAddr << "\n";
 
     // set datagram source address if not yet set
     if (datagram->getSrcAddress().isUnspecified()) {
@@ -537,7 +558,7 @@ void IPv6::routePacket(IPv6Datagram *datagram, InterfaceEntry *destIE,
         // if the datagram has a tentative address as source we have to reschedule it
         // as it can not be sent before the address' tentative status is cleared - CB
         if (ie->ipv6Data()->isTentativeAddress(srcAddr)) {
-            EV
+            cout
                       << "Source address is tentative - enqueueing datagram for later resubmission."
                       << endl;
             ScheduledDatagram* sDgram = new ScheduledDatagram();
@@ -551,12 +572,6 @@ void IPv6::routePacket(IPv6Datagram *datagram, InterfaceEntry *destIE,
 
     //Bruno SOusa
     parse_ipv6_datagram_for_mcoa(datagram, ie);
-
-    //#####################################################Flow Controll des HAs für durchgehende Pakete, z.B. vom CN#####################################################
-    if (isHA) {
-        replaceFlowSourceAddress(datagram);
-    }
-    //#####################################################Flow Controll des HAs für durchgehende Pakete, z.B. vom CN#####################################################
 
     // send out datagram
     if (isActive) {
@@ -698,10 +713,28 @@ void IPv6::routeMulticastPacket(IPv6Datagram *datagram, InterfaceEntry *destIE,
 void IPv6::isLocalAddress(IPv6Datagram *datagram, bool isTunnelled) {
 
     //*************************************************************
-   // if (isHA && datagram->getTransportProtocol() == IP_PROT_UDP)
-      //  cout << "DATAGRAM-NAME: " << datagram->getName();
+    if (isHA && datagram->getTransportProtocol() == IP_PROT_UDP) {
+        cout << "isLocalAddress of HA - DATAGRAM-NAME: " << datagram->getName()
+                << endl;
 
+        //NUN HIER die IP-Addresse wiedder entsprechend ersetzen und umbiegen auf neue Addresse:
+        if (!strcmp(datagram->getName(),"Video Datei vom VideoSrv")) {
+            cout << " es ist ein Video Paket !!!" << endl;
 
+            const char* oldDestAddress = datagram->par("oldDest").stringValue();
+            cout<<"OLD DEST ADDRESS: "<<oldDestAddress<<endl;
+
+            IPv6Address newDestAddress = IPv6Address();
+            newDestAddress.set(oldDestAddress);
+
+            datagram->setDestAddress(newDestAddress);
+
+            //route to MN now
+            routePacket(datagram, NULL, false, false);
+
+            return;
+        }
+    }
 
     //TEST OB MAN DIE SRC IP ADRESSE ÄNDERN KANN ZUM UPPER LAYER HOCH:
 
@@ -871,14 +904,14 @@ cPacket *IPv6::decapsulate(IPv6Datagram *datagram, bool isTunneled) {
 //#################################################################################
 
 //PROXY UNLOADING EXTENSION
-IPv6Datagram* IPv6::replaceFlowSourceAddress(IPv6Datagram *datagram) {
+void IPv6::replaceFlowSourceAddress(IPv6Datagram *datagram) {
 
     //check first if the src and destination ip adresses are set properly otherwise return and do nothing here
     if (datagram->getDestAddress().isUnspecified()) {
         cout
                 << "@@DEST-ADRESSE WAR UNSPEZIFIZIERT Adressen-Ersetzung durch FlowHandling konnte nicht durchgeführt werden"
                 << endl;
-        return datagram;
+        //return datagram;
     }
 
     if (datagram->getSrcAddress().isUnspecified()
@@ -942,20 +975,20 @@ IPv6Datagram* IPv6::replaceFlowSourceAddress(IPv6Datagram *datagram) {
 
         }
     }
-    return datagram;
+    //return datagram;
 }
 
 //#################################################################################
 
 //PROXY UNLOADING EXTENSION
-IPv6Datagram* IPv6::calculateFlowSourceAddress(IPv6Datagram *datagram) {
+void IPv6::calculateFlowSourceAddress(IPv6Datagram *datagram) {
 
     //check first if the src and destination ip adresses are set properly otherwise return and do nothing here
     if (datagram->getDestAddress().isUnspecified()) {
         cout
                 << "@@DEST-ADRESSE WAR UNSPEZIFIZIERT FlowSourceAdresse konnte nicht berechnet werden"
                 << endl;
-        return datagram;
+        //  return datagram;
     }
 
     if (datagram->getSrcAddress().isUnspecified()
@@ -1029,27 +1062,56 @@ IPv6Datagram* IPv6::calculateFlowSourceAddress(IPv6Datagram *datagram) {
 
             }
 
-
             //replace the CoA Adress of the MN with it's HoA - if the CN is not capable
-            if(flowBindingTable->cnOfConnectionIsNotCapable(datagram->getDestAddress().str().c_str())
+            if (flowBindingTable->cnOfConnectionIsNotCapable(
+                    datagram->getDestAddress().str().c_str())
                     && datagram->getDestAddress()
                             != IPAddressResolver().resolve("HA").get6()
-                    && datagram->getDestAddress() != rt6->getHomeNetHA_adr()){
+                    && datagram->getDestAddress() != rt6->getHomeNetHA_adr()) {
 
-                    IPv6Address homeAddressOfMobileNode = rt6->getHomeNetHoA_adr();
-                    //cout<<"HOME ADDRESSE OF MOBILE NODE: "<<homeAddressOfMobileNode.str().c_str()<<endl;
-                    datagram->setSrcAddress(homeAddressOfMobileNode);
+                IPv6Address homeAddressOfMobileNode = rt6->getHomeNetHoA_adr();
+                //cout<<"HOME ADDRESSE OF MOBILE NODE: "<<homeAddressOfMobileNode.str().c_str()<<endl;
+                datagram->setSrcAddress(homeAddressOfMobileNode);
 
-                    }
+            }
             //otherwise the MN can directly communicate with it's CoA with the CN
-
 
         } //only if the ports are set go further END
 
     } //only UDP-Protocol is checked currently END
 
-    //Return the IP-Datagram now whether or not the Flow-Source-IP-Adresse got added by the FlowBindingTable
-    return datagram;
+    //NO returning of the changed IP Datagramm si needed. Since it is a pointer variable. All the changes already have been adapted by the Datagram.
+}
+
+//#################################################################################
+//PROXY UNLOADING EXTENSION:
+
+void IPv6::replaceDestAddresseWithHaAddress(IPv6Datagram *datagram) {
+
+    if (isCN && !isCapableCN) {
+        int protocol = datagram->getTransportProtocol();
+
+        //change only for UDP Traffic, not Network Control Traffic
+        if (protocol == IP_PROT_UDP) {
+            cout
+                    << "Paket wird direkt an den HA gesendet, da CN nicht capable ist !!"
+                    << endl;
+            cout << "ICH WAR HIER" << endl;
+            cout << "DEST ADDRESSE: "
+                    << datagram->getDestAddress().str().c_str() << endl;
+
+
+
+            datagram->addPar("oldDest");
+            datagram->par("oldDest").setStringValue(datagram->getDestAddress().str().c_str());
+
+            IPv6Address newDest = IPv6Address();
+            newDest.set("2001:db8::2aa:1a2");
+            datagram->setDestAddress(newDest/*rt->getHomeAddress()*/);
+            cout << "DEST ADDRESSE nach ERSETZUNG: "
+                    << datagram->getDestAddress().str().c_str() << endl;
+        }
+    }
 }
 
 //#################################################################################
@@ -1113,7 +1175,7 @@ IPv6Datagram *IPv6::encapsulate(cPacket *transportPacket,
     datagram->encapsulate(transportPacket); // 30.08.07 - CB
 
     //PROXY UNLOADING XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-   //choose the correct Source Address for the Package
+    //choose the correct Source Address for the Package
     //if the HA hast to be a Proxy repalce the SRC Address of MN through it's HA Address
     if (isMN) {
         calculateFlowSourceAddress(datagram);
@@ -1123,6 +1185,11 @@ IPv6Datagram *IPv6::encapsulate(cPacket *transportPacket,
     if (isHA || isCapableCN) {
         replaceFlowSourceAddress(datagram);
 
+    }
+
+    //if CN is not capable - force sending the DATA over the HA:
+    if (isCN && !isCapableCN) {
+        replaceDestAddresseWithHaAddress(datagram);
     }
 
     //PROXY UNLOADING XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX

@@ -100,7 +100,6 @@ void Proxy_Unloading_Control_App::initialize() {
                         new SetAddressActive();
                 addressToBeSetActive_ForCN0->setName(
                         "Change the Control Flow of MN[1] FOR CN[0]");
-                addressToBeSetActive_ForCN0->setKind(CHANGE_DATA_FLOW);
                 addressToBeSetActive_ForCN0->setAddressToBeSetActive(
                         "2001:db8::2aa:501");
 
@@ -199,12 +198,13 @@ void Proxy_Unloading_Control_App::handleMessage(cMessage* msg) {
 
             //rescedule new TimingEvent for the Next Time.
             scheduleAt(simTime() + requestForConnectionTimeOut, msg);
+            return;
         }
 
 //##########################################################################
 
 //################  check new Request to Change the Data Flow has arrived ##########
-        if (msg->getKind() == CHANGE_DATA_FLOW) {
+        if (dynamic_cast<SetAddressActive* >(msg)) {
 
             if (isMN) {
 
@@ -270,6 +270,7 @@ void Proxy_Unloading_Control_App::handleMessage(cMessage* msg) {
             }
             //schedule New Timer - if the CN does not respond properly with an ACK or the list is currently empty:
             scheduleAt(simTime() + setActiveIPAddressTimeOut, msg);
+            return;
         }
         //##########################################################################
 
@@ -517,6 +518,10 @@ void Proxy_Unloading_Control_App::handleMessage(cMessage* msg) {
                         << "SetAddressActive Message ist beim Home Agent eingegangen. Absender war: "
                         << messageFromMN->getName() << endl;
 
+                //send to own Table:
+                send(messageFromMN, "uDPControllAppConnection$o");
+
+                //update the other tables of the cns
                 addresseToBeSetActive.push_back(messageFromMN->dup());
 
                 //acknowledge the received SetAddressActive Message
@@ -574,7 +579,7 @@ void Proxy_Unloading_Control_App::handleMessage(cMessage* msg) {
                 ACK_SetAddressActive* response = check_and_cast<
                         ACK_SetAddressActive*>(msg);
                 cout << humanReadableName
-                        << " hat seine SetAddressActive Nachricht acknowledget bekommen vom"
+                        << " hat seine SetAddressActive Nachricht acknowledget bekommen vom "
                         << response->getSourceName() << endl;
                 if (!addresseToBeSetActive.empty()) {
                     addresseToBeSetActive.erase(addresseToBeSetActive.begin());

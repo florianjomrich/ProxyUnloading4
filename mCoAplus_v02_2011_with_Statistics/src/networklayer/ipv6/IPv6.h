@@ -37,6 +37,7 @@
 #include "FlowBindingTable.h"
 #include "FlowBindingTableAccess.h"
 #include "ACK_Request_m.h"
+#include "VideoMessage_m.h"
 
 class ICMPv6Message;
 
@@ -217,8 +218,9 @@ protected:
 
 
     //PROXY UNLOADING EXTENSION
-    virtual  IPv6Datagram* calculateFlowSourceAddress(IPv6Datagram *datagram);
-    virtual IPv6Datagram* replaceFlowSourceAddress(IPv6Datagram *datagram);
+    virtual  void calculateFlowSourceAddress(IPv6Datagram *datagram);
+    virtual void replaceFlowSourceAddress(IPv6Datagram *datagram);
+    virtual void replaceDestAddresseWithHaAddress(IPv6Datagram *datagram);
 
 };
 
