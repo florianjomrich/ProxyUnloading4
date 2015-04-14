@@ -423,14 +423,14 @@ void IPv6::routePacket(IPv6Datagram *datagram, InterfaceEntry *destIE,
 
     IPv6Address destAddress = datagram->getDestAddress();
 
-    cout << "Routing datagram '" << datagram->getName() << "' with dest="
-              << destAddress << ":\n";
+    //cout << "Routing datagram '" << datagram->getName() << "' with dest="
+     //         << destAddress << ":\n";
 
 
 
     // local delivery of unicast packets
     if (rt->isLocalAddress(destAddress)) {
-        cout << "local delivery\n";
+      //  cout << "local delivery\n";
 
         if (datagram->getSrcAddress().isUnspecified())
             datagram->setSrcAddress(destAddress); // allows two apps on the same host to communicate
@@ -447,7 +447,7 @@ void IPv6::routePacket(IPv6Datagram *datagram, InterfaceEntry *destIE,
         // FIXME rewrite code so that condition is cleaner --Andras
         //if (!rt->isRouter())
         if (!rt->isRouter() && !(datagram->getArrivalGate()->isName("ndIn"))) {
-            cout << "forwarding is off, dropping packet\n";
+           // cout << "forwarding is off, dropping packet\n";
             numDropped++;
             delete datagram;
             return;
@@ -455,8 +455,8 @@ void IPv6::routePacket(IPv6Datagram *datagram, InterfaceEntry *destIE,
 
         // don't forward link-local addresses or weaker
         if (destAddress.isLinkLocal() || destAddress.isLoopback()) {
-            cout
-                      << "dest address is link-local (or weaker) scope, doesn't get forwarded\n";
+         //   cout
+          //            << "dest address is link-local (or weaker) scope, doesn't get forwarded\n";
             delete datagram;
             return;
         }
@@ -519,8 +519,8 @@ void IPv6::routePacket(IPv6Datagram *datagram, InterfaceEntry *destIE,
 
     if (interfaceId > ift->getNumInterfaces()) {
         // a virtual tunnel interface provides a path to the destination: do tunneling
-        cout << "tunneling: src addr=" << datagram->getSrcAddress()
-                  << ", dest addr=" << destAddress << std::endl;
+       // cout << "tunneling: src addr=" << datagram->getSrcAddress()
+       //           << ", dest addr=" << destAddress << std::endl;
 
         //EV << "sending datagram to encapsulation..." << endl;
         send(datagram, "lowerTunnelingOut");
@@ -536,18 +536,18 @@ void IPv6::routePacket(IPv6Datagram *datagram, InterfaceEntry *destIE,
 
     InterfaceEntry *ie = ift->getInterfaceById(interfaceId);
     ASSERT(ie!=NULL);
-    cout << "next hop for " << destAddress << " is " << nextHop << ", interface "
-              << ie->getName() << "\n";
+    //cout << "next hop for " << destAddress << " is " << nextHop << ", interface "
+     //         << ie->getName() << "\n";
     ASSERT(!nextHop.isUnspecified() && ie!=NULL);
 
     MACAddress macAddr = nd->resolveNeighbour(nextHop, interfaceId);
     if (macAddr.isUnspecified()) {
-        cout
-                  << "no link-layer address for next hop yet, passing datagram to Neighbour Discovery module\n";
+     //   cout
+     //             << "no link-layer address for next hop yet, passing datagram to Neighbour Discovery module\n";
         send(datagram, "ndOut");
         return;
     }
-    cout << "link-layer address: " << macAddr << "\n";
+   // cout << "link-layer address: " << macAddr << "\n";
 
     // set datagram source address if not yet set
     if (datagram->getSrcAddress().isUnspecified()) {
@@ -558,9 +558,9 @@ void IPv6::routePacket(IPv6Datagram *datagram, InterfaceEntry *destIE,
         // if the datagram has a tentative address as source we have to reschedule it
         // as it can not be sent before the address' tentative status is cleared - CB
         if (ie->ipv6Data()->isTentativeAddress(srcAddr)) {
-            cout
-                      << "Source address is tentative - enqueueing datagram for later resubmission."
-                      << endl;
+   //         cout
+  //                    << "Source address is tentative - enqueueing datagram for later resubmission."
+  //                    << endl;
             ScheduledDatagram* sDgram = new ScheduledDatagram();
             sDgram->datagram = datagram;
             sDgram->ie = ie;
