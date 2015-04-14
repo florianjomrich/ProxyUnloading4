@@ -314,6 +314,9 @@
 <includePath path="/home/ubuntu/ProxyUnloading4/mCoAplus_v02_2011_with_Statistics/_scripts"/>
 <includePath path="/home/ubuntu/ProxyUnloading4/mCoAplus_v02_2011_with_Statistics/_scripts/xsd2html"/>
 <includePath path="/home/ubuntu/ProxyUnloading4/mCoAplus_v02_2011_with_Statistics/_scripts/xmlschema"/>
+<includePath path="/home/ubuntu/ProxyUnloading4/test_zum_Anpassen_der_App/simulations/testMCoAv2/NOT CAPABLE"/>
+<includePath path="/home/ubuntu/ProxyUnloading4/test_zum_Anpassen_der_App/simulations/testMCoAv2/Capable vs Not Capable"/>
+<includePath path="/home/ubuntu/ProxyUnloading4/test_zum_Anpassen_der_App/simulations/testMCoAv2/CAPABLE"/>
 <definedSymbol symbol="__STDC__=1"/>
 <definedSymbol symbol="__cplusplus=199711L"/>
 <definedSymbol symbol="__STDC_HOSTED__=1"/>
